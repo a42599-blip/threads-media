@@ -1,0 +1,36 @@
+name: cleanup-media
+
+# 排程圖文自動瘦身（2026-10-24 建立）
+# 目的：threads-media 只當「暫存佇列」，發布過的圖／影片不要一直累積。
+#   - 每天自動掃一次，刪掉「超過 7 天」的暫存檔（保險機制，避免程式漏刪）
+#   - 檔名或資料夾日期可解析才處理；解析不到的一律不動（安全優先）
+#   - 若檔名寫在 keep.txt 裡 → 永不刪（給「還沒發布」的排程保命）
+# 注意：git 刪檔不會讓 repo 變小（歷史還在），但至少「目前檔案」不會越長越大。
+
+on:
+  schedule:
+    - cron: '20 20 * * *'   # 每天 04:20 台北時間（UTC+8）
+  workflow_dispatch:
+    inputs:
+      days:
+        description: '保留幾天（預設 7）'
+        default: '7'
+      dry_run:
+        description: '只列出不刪（true/false）'
+        default: 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 掃描並刪除過期暫存檔
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DAYS: ${{ github.event.inputs.days || '7' }}
+          DRY: ${{ github.event.inputs.dry_run || 'false' }}
+        run: python3 .github/scripts/cleanup_media.py
